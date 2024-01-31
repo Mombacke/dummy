@@ -1,49 +1,53 @@
 package com.example.myapplication
 
-import androidx.appcompat.app.AppCompatActivity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Environment
 import android.widget.Button
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import timber.log.Timber
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.channels.FileChannel
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val button = findViewById<Button>(R.id.button)
+        Timber.i("MainActivity onCreate")
 
-        // Set up a click listener to cause a crash
-        button.setOnClickListener {
-            Timber.d("Button clicked, about to crash")
-            throw RuntimeException("Deliberate crash for testing")
+        findViewById<Button>(R.id.button).setOnClickListener {
+            Timber.i("Log button clicked")
+
+            simulateDatabaseOperation()
         }
+    }
 
-        // Example Timber logging
-        Timber.d("MainActivity created")
+    private fun simulateDatabaseOperation() {
+            Timber.i("Simulating database operation")
+
+            Timber.i("Database operation successful")
     }
 
     override fun onStart() {
         super.onStart()
-        Timber.d("MainActivity started")
+        Timber.i("MainActivity onStart")
     }
 
     override fun onResume() {
         super.onResume()
-        Timber.d("MainActivity resumed")
-    }
-
-    override fun onPause() {
-        super.onPause()
-        Timber.d("MainActivity paused")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        Timber.d("MainActivity stopped")
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        Timber.d("MainActivity destroyed")
+        Timber.i("MainActivity onResume")
     }
 }
+
+
+
+
+

@@ -2,62 +2,63 @@ package com.example.myapplication
 
 import android.content.ContentValues
 import android.content.Context
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import timber.log.Timber
-import java.io.OutputStream
-import java.io.PrintWriter
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
-class CustomExceptionHandler(private val context: Context) : Thread.UncaughtExceptionHandler {
-    private val defaultUEH: Thread.UncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
+class FileLoggingTree(private val context: Context) : Timber.DebugTree() {
+    private val logFileName = "logs.csv"
 
-    override fun uncaughtException(thread: Thread, e: Throwable) {
+    override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
         try {
-            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val fileName = "crash_log_$timeStamp.csv"
+            val logTimeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+            // Check if log file exists
+            val selection = MediaStore.MediaColumns.DISPLAY_NAME + "=?"
+            val selectionArgs = arrayOf(logFileName)
+            val filesUri = MediaStore.Files.getContentUri("external")
+            val cursor = context.contentResolver.query(filesUri, null, selection, selectionArgs, null)
+
+            val isNewFile = cursor?.count == 0
+            cursor?.close()
 
             val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.DISPLAY_NAME, logFileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS)
+                if (isNewFile) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/YourAppNameLogs")
                 }
             }
 
-            val uri = context.contentResolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
-            uri?.let {
-                context.contentResolver.openOutputStream(it).use { outputStream ->
-                    writeCrashLogToStream(outputStream, e, timeStamp)
+            val uri = if (isNewFile) {
+                context.contentResolver.insert(filesUri, contentValues)
+            } else {
+                context.contentResolver.query(filesUri, arrayOf(MediaStore.MediaColumns._ID), selection, selectionArgs, null)?.use {
+                    if (it.moveToFirst()) {
+                        val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                        filesUri.buildUpon().appendPath(id.toString()).build()
+                    } else null
                 }
             }
 
-            Timber.e(e, "Uncaught Exception written to CSV file in Documents directory")
-        } catch (fileException: Exception) {
-            Timber.e(fileException, "Error while writing exception to CSV file")
-        }
-
-        defaultUEH.uncaughtException(thread, e)
-    }
-
-    private fun writeCrashLogToStream(outputStream: OutputStream?, e: Throwable, timeStamp: String) {
-        outputStream?.let { os ->
-            PrintWriter(os).use { writer ->
-                writer.println("Timestamp,Exception Type,Message,StackTrace")
-                writer.print(timeStamp)
-                writer.print(',')
-                writer.print(e.javaClass.simpleName)
-                writer.print(',')
-                writer.print(e.message)
-                writer.print(',')
-                e.stackTrace.joinToString(separator = " | ") { it.toString() }.let { writer.print(it) }
+            context.contentResolver.openOutputStream(uri ?: return, if (isNewFile) "w" else "wa").use { outputStream ->
+                outputStream?.apply {
+                    if (isNewFile) {
+                        write("Timestamp,Message\n".toByteArray())
+                    }
+                    write("$logTimeStamp,$message\n".toByteArray())
+                    flush()
+                    close()
+                }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Error while logging into file")
         }
     }
 }
+
 
 
 
